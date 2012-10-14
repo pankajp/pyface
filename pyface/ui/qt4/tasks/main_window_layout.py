@@ -117,16 +117,12 @@ class MainWindowLayout(HasTraits):
                 child.hide()
                 self.control.removeDockWidget(child)
 
-        # Perform the layout. This will assign fixed sizes to the dock widgets
-        # to enforce size constraints specified in the PaneItems.
+        # Perform the layout. This will resize the dock widgets.
         for name, q_dock_area in AREA_MAP.iteritems():
             sublayout = getattr(layout, name)
             if sublayout:
                 self.set_layout_for_area(sublayout, q_dock_area,
                                          _toplevel_call=False)
-
-        # Remove the fixed sizes once Qt activates the layout.
-        QtCore.QTimer.singleShot(0, self._reset_fixed_sizes)
 
     def set_layout_for_area(self, layout, q_dock_area,
                             _toplevel_added=False, _toplevel_call=True):
@@ -192,10 +188,6 @@ class MainWindowLayout(HasTraits):
                 
         else:
             raise MainWindowLayoutError("Unknown layout item %r" % layout)
-
-        # Remove the fixed sizes once Qt activates the layout.
-        if _toplevel_call:
-            QtCore.QTimer.singleShot(0, self._reset_fixed_sizes)
 
     ###########################################################################
     # 'MainWindowLayout' abstract interface.
@@ -267,10 +259,10 @@ class MainWindowLayout(HasTraits):
                 logger.warning('Cannot retrieve dock widget for pane %r'
                                % layout.id)
             else:
-                if layout.width > 0:
-                    dock_widget.widget().setFixedWidth(layout.width)
-                if layout.height > 0:
-                    dock_widget.widget().setFixedHeight(layout.height)
+                widget = dock_widget.widget()
+                width = layout.width if layout.width > 0 else widget.width()
+                height = layout.height if layout.height > 0 else widget.height()
+                widget.resize(width, height)
             return dock_widget
         
         elif isinstance(layout, LayoutContainer):
@@ -278,14 +270,6 @@ class MainWindowLayout(HasTraits):
         
         else:
             raise MainWindowLayoutError("Leaves of layout must be PaneItems")
-
-    def _reset_fixed_sizes(self):
-        """ Clears any fixed sizes assined to QDockWidgets.
-        """
-        QWIDGETSIZE_MAX = (1 << 24) - 1 # Not exposed by Qt bindings.
-        for child in self.control.children():
-            if isinstance(child, QtGui.QDockWidget):
-                child.widget().setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
 
 
 class MainWindowLayoutError(ValueError):
